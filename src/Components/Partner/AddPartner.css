@@ -1,0 +1,408 @@
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.add-partner-modal-content {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    color: #333;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+    margin-bottom: 25px;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.8em;
+    color: #333;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    font-size: 2em;
+    cursor: pointer;
+    color: #888;
+    transition: color 0.2s ease;
+}
+
+.close-button:hover {
+    color: #333;
+}
+
+/* Profile Section Styling */
+.profile-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 30px;
+    gap: 20px;
+}
+
+.profile-logo-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+.profile-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background-color: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    margin-bottom: 10px;
+    border: 3px solid #007bff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.profile-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.change-logo-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s ease;
+}
+
+.change-logo-button:hover {
+    background-color: #0056b3;
+}
+
+.form-group.partner-name-group {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+/* Form Group & Input Styling */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #555;
+    font-size: 0.95em;
+}
+
+.input-field {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1em;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-field:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* Detection Settings & Checkbox Styling */
+.section-title {
+    font-size: 1.5em;
+    color: #333;
+    margin-top: 30px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.detection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.checkbox-container {
+  display: block;
+  position: relative;
+  padding-left: 30px;
+  cursor: pointer;
+  font-size: 1em;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  color: #444;
+}
+
+/* Hide the browser's default checkbox */
+.checkbox-container input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+/* Create a custom checkbox (checkmark) */
+.checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 20px;
+  width: 20px;
+  background-color: #eee;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  border: 1px solid #ccc;
+}
+
+/* On mouse-over, add a light grey background color */
+.checkbox-container:hover input ~ .checkmark {
+  background-color: #ccc;
+}
+
+/* When the checkbox is checked, add a blue background */
+.checkbox-container input:checked ~ .checkmark {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+/* Create the checkmark/indicator (hidden when not checked) */
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+/* Show the checkmark when checked */
+.checkbox-container input:checked ~ .checkmark:after {
+  display: block;
+}
+
+/* Style the checkmark/indicator */
+.checkbox-container .checkmark:after {
+  left: 7px;
+  top: 3px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 3px 3px 0;
+  -webkit-transform: rotate(45deg);
+  -ms-transform: rotate(45deg);
+  transform: rotate(45deg);
+}
+
+
+/* Footer */
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 25px;
+    border-top: 1px solid #eee;
+    margin-top: auto;
+}
+
+.create-button {
+    background-color: #28a745;
+    color: white;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.1em;
+    font-weight: bold;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 5px rgba(40, 167, 69, 0.2);
+}
+
+.create-button:hover {
+    background-color: #218838;
+    box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);
+}
+
+/* Responsive Style for Add Partner */
+@media (min-width: 769px) {
+    .profile-section {
+        flex-direction: row;
+        justify-content: center;
+        align-items: flex-start;
+    }
+
+    .profile-logo-wrapper {
+        flex-shrink: 0;
+        margin-right: 30px;
+    }
+
+    .form-group.partner-name-group {
+        width: auto;
+        flex-grow: 1;
+        align-self: center;
+    }
+}
+
+
+@media (max-width: 768px) {
+  .add-partner-modal-content {
+    padding: 20px;
+    max-width: 95%;
+  }
+
+  .modal-header h2 {
+    font-size: 1.5em;
+  }
+
+  .profile-circle {
+    width: 100px;
+    height: 100px;
+  }
+
+  .change-logo-button {
+      padding: 7px 12px;
+      font-size: 0.8em;
+  }
+
+  .form-group label {
+    font-size: 0.9em;
+  }
+
+  .input-field {
+    padding: 10px 12px;
+    font-size: 0.95em;
+  }
+
+  .section-title {
+      font-size: 1.3em;
+      margin-top: 25px;
+      margin-bottom: 15px;
+  }
+
+  .detection-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Adjust min-width */
+    gap: 10px;
+  }
+
+  .checkbox-container {
+      font-size: 0.9em;
+  }
+
+  .checkmark {
+      width: 18px;
+      height: 18px;
+  }
+
+  .checkbox-container .checkmark:after {
+      left: 6px;
+      top: 2px;
+      width: 4px;
+      height: 8px;
+      border-width: 0 2px 2px 0;
+  }
+
+  .create-button {
+    padding: 10px 20px;
+    font-size: 1em;
+  }
+}
+
+@media (max-width: 480px) {
+  .add-partner-modal-content {
+    padding: 15px;
+    border-radius: 8px;
+  }
+
+  .modal-header h2 {
+    font-size: 1.3em;
+  }
+
+  .close-button {
+    font-size: 1.8em;
+  }
+
+  .profile-circle {
+    width: 80px;
+    height: 80px;
+  }
+
+  .change-logo-button {
+    padding: 6px 10px;
+    font-size: 0.75em;
+  }
+
+  .form-group label {
+    font-size: 0.85em;
+  }
+
+  .input-field {
+    padding: 8px 10px;
+    font-size: 0.9em;
+  }
+
+  .section-title {
+      font-size: 1.1em;
+      margin-top: 20px;
+      margin-bottom: 10px;
+  }
+
+  .detection-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .checkbox-container {
+      font-size: 0.85em;
+      padding-left: 25px;
+  }
+
+  .checkmark {
+      width: 16px;
+      height: 16px;
+  }
+
+  .checkbox-container .checkmark:after {
+      left: 5px;
+      top: 1px;
+      width: 3px;
+      height: 7px;
+      border-width: 0 2px 2px 0;
+  }
+
+  .create-button {
+    padding: 8px 18px;
+    font-size: 0.9em;
+  }
+}
