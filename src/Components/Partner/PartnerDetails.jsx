@@ -2,7 +2,9 @@ import { FaEye, FaDownload, FaUpload, FaUser, FaTable, FaFileAlt, FaImage, FaFol
 import { useRef } from 'react';
 import './PartnerDetails.css';
 
-function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onViewAuditLog}) {
+const API_BASE_URL = 'http://localhost:5000'; // Ensure this is defined or passed as a prop
+
+function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onViewAuditLog, onViewPartnerDetails }) {
   const fileInputRef = useRef(null);
 
   const handleUploadButtonClick = () => {
@@ -17,14 +19,8 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
     event.target.value = null;
   };
 
-  //Download All
-  const handleDownloadAll = () => {
-    alert(`Simulating "Download All" for ${partner.name}`);
-  };
-
-  //See Profile
   const handleSeeProfile = () => {
-    alert(`Simulating "See Profile" for ${partner.name}`);
+    onViewPartnerDetails();
   };
 
   const getFileTypeIcon = (fileType) => {
@@ -39,23 +35,31 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
     <div className="partner-details-container">
       <div className="partner-header-main">
         <div className="partner-info-main">
-          <img src={partner.logo || '/icons/default_partner.svg'} alt={partner.name} className="partner-logo-main" />
+          {partner.logo && partner.logo !== '/icons/question-mark.png' ? (
+              <img
+                  src={`${API_BASE_URL}${partner.logo}`}
+                  alt={`${partner.name} logo`}
+                  className="partner-logo-main"
+              />
+          ) : (
+              <img
+                  src="/icons/question-mark.png"
+                  alt="Default Partner Logo"
+                  className="partner-logo-main"
+              />
+          )}
           <h1>{partner.name}</h1>
         </div>
         <div className="header-actions">
-          <button className="action-button" onClick={handleDownloadAll}>
-            <FaDownload /> Download all
-          </button>
           <button className="action-button" onClick={handleUploadButtonClick}>
             <FaUpload /> Upload file
           </button>
           <button className="action-button" onClick={handleSeeProfile}>
             <FaUser /> See Profile
           </button>
-          {/* Hidden file input */}
           <input
             type="file"
-            multiple // Allow multiple file selection
+            multiple
             ref={fileInputRef}
             onChange={handleFileChange}
             style={{ display: 'none' }}
@@ -97,7 +101,6 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
                       </span>
                     </td>
                     <td>
-                      {/* Placeholder for the Log/View icon */}
                       <button className="log-icon-button" onClick={() => onViewAuditLog(file)}>
                         <FaEye />
                       </button>
@@ -111,7 +114,7 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6" className="no-files-message">No files uploaded for this partner yet.</td> {/* Adjusted colspan */}
+                  <td colSpan="6" className="no-files-message">No files uploaded for this partner yet.</td>
                 </tr>
               )}
             </tbody>

@@ -6,13 +6,20 @@ function Review({ fileName, fileType, detectedPii, onProceed, onCancel }) {
 
   useEffect(() => {
     if (detectedPii) {
-      setReviewItems(detectedPii.map(item => {
-        const confidence = item.confidence || item.avgConfidence;
-        return {
-          ...item,
-          ignore: confidence < 70 ? true : item.ignore // Apply auto-ignore based on threshold
-        };
-      }));
+      setReviewItems(
+        detectedPii.map((item, index) => {
+          const rawConfidence = item.confidence !== undefined ? item.confidence : item.avgConfidence;
+          const displayConfidence = Math.round(rawConfidence * 100);
+
+          return {
+            id: item.id || `${item.detect}-${item.start || item.column}-${index}`,
+            ...item,
+            confidence: displayConfidence,
+            avgConfidence: displayConfidence,
+            ignore: displayConfidence < 70 ? true : (item.ignore || false)
+          };
+        })
+      );
     }
   }, [detectedPii]);
 
@@ -25,13 +32,13 @@ function Review({ fileName, fileType, detectedPii, onProceed, onCancel }) {
   };
 
   const renderTableContent = () => {
-    if (fileType === 'Text file') {
+    if (fileType === 'Text file' || fileType === 'Image file' || fileType === 'Document file') { // Group similar types
       return (
         <>
           <thead>
             <tr>
               <th>Word</th>
-              <th>Entity</th>
+              <th>Entity</th> {/* Changed from PII_Confidence_Title to Entity for clarity */}
               <th>PII_Confidence</th>
               <th>Ignore</th>
             </tr>
@@ -40,7 +47,7 @@ function Review({ fileName, fileType, detectedPii, onProceed, onCancel }) {
             {reviewItems.map(item => (
               <tr key={item.id}>
                 <td>{item.word}</td>
-                <td>{item.entity}</td>
+                <td>{item.detect}</td> {/* Use item.detect from backend */}
                 <td className={item.confidence < 70 ? 'confidence-low' : 'confidence-high'}>
                   {item.confidence}%
                 </td>
@@ -62,7 +69,7 @@ function Review({ fileName, fileType, detectedPii, onProceed, onCancel }) {
           <thead>
             <tr>
               <th>Column</th>
-              <th>Entity</th>
+              <th>Entity</th> {/* Changed from PII_Confidence_Title to Entity for clarity */}
               <th>Top data (First 2 rows)</th>
               <th>PII_Confidence (Avg)</th>
               <th>Ignore</th>
@@ -72,7 +79,7 @@ function Review({ fileName, fileType, detectedPii, onProceed, onCancel }) {
             {reviewItems.map(item => (
               <tr key={item.id}>
                 <td>{item.column}</td>
-                <td>{item.entity}</td>
+                <td>{item.detect}</td> {/* Use item.detect from backend */}
                 <td>
                   {Array.isArray(item.topData) ? item.topData.join(', ') : item.topData}
                 </td>

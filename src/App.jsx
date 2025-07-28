@@ -1,113 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import Sidenav from './Components/Sidenav/Sidenav';
 import PartnerDetails from './Components/Partner/PartnerDetails';
 import AddPartner from './Components/Partner/AddPartner';
+import ViewPartner from './Components/Partner/ViewPartner'; // Make sure this is imported
 import LoadingOverlay from './Components/Common/LoadingOverlay';
 import Review from './Components/Review/Review';
 import AuditLog from './Components/AuditLog/AuditLog';
 import './App.css';
 
-//Dummy data (yeah, there's a lot. Just for reference before we put the real one)
-const initialPartners = [
-  {
-    id: 'starbucks',
-    name: 'Starbucks',
-    logo: '/icons/starbucks-logo.png',
-    files: [
-      { id: 'sb-file1', filename: 'Customers_Orders.xlsx', type: 'Tabular file', state: 'Anonymized', downloadLink: '#',
-        auditLog: {
-          intendedFor: 'Starbucks',
-          anonymizedMethod: 'Encryption',
-          detectedEntitiesSummary: [
-            { entity: 'IC_NUMBER', count: 50 },
-            { entity: 'PERSON', count: 120 },
-            { entity: 'CREDIT_CARD', count: 15 }
-          ]
-        }
-      },
-      { id: 'sb-file2', filename: 'Marketing_Campaign.txt', type: 'Text file', state: 'De-anonymized', downloadLink: '#' },
-    ],
-    dataEncryptionKey: 'starbucksKey123',
-    filePassword: 'sbPass',
-    detectionSettings: {
-      phoneNumber: true, icNumber: true, personCompanyName: true, email: true,
-      addressGeographic: true, dateTime: false, ethnicityRaceNationality: true, creditCard: false,
-    },
-  },
-  {
-    id: 'bmw',
-    name: 'BMW',
-    logo: '/icons/bmw-logo.png',
-    files: [
-      {
-        id: 'bmw-file1', filename: 'Finanial_Data.xlsx', type: 'Tabular file', state: 'Anonymized', downloadLink: '#',
-        auditLog: {
-          intendedFor: 'BMW',
-          anonymizedMethod: 'Encryption',
-          detectedEntitiesSummary: [
-            { entity: 'PERSON', count: 10 },
-            { entity: 'EMAIL', count: 5 },
-          ]
-        }
-      },
-      {
-        id: 'bmw-file2', filename: 'Client_Testimonial.txt', type: 'Text file', state: 'De-anonymized', downloadLink: '#',
-        auditLog: {
-          intendedFor: 'BMW',
-          anonymizedMethod: 'Encryption',
-          detectedEntitiesSummary: [
-            { entity: 'PHONE_NUMBER', count: 2 },
-            { entity: 'PERSON', count: 3 },
-          ]
-        }
-      },
-      { id: 'bmw-file3', filename: 'Purchase_record.csv', type: 'Tabular file', state: 'Anonymized', downloadLink: '#' },
-      { id: 'bmw-file4', filename: 'IC_photo.jpg', type: 'Image file', state: 'Anonymized', downloadLink: '#' },
-    ],
-    dataEncryptionKey: 'bmwKey456',
-    filePassword: 'bmwPass',
-    detectionSettings: {
-      phoneNumber: true, icNumber: true, personCompanyName: true, email: true,
-      addressGeographic: true, dateTime: true, ethnicityRaceNationality: true, creditCard: true,
-    },
-  },
-  {
-    id: 'salesforce',
-    name: 'Salesforce',
-    logo: '/icons/salesforce-logo.png',
-    files: [
-        { id: 'sf-file1', filename: 'CRM_Data_Q1.xlsx', type: 'Tabular file', state: 'Anonymized', downloadLink: '#' },
-    ],
-    dataEncryptionKey: 'sfKey789',
-    filePassword: 'sfPass',
-    detectionSettings: {
-      phoneNumber: true, icNumber: true, personCompanyName: true, email: true,
-      addressGeographic: true, dateTime: true, ethnicityRaceNationality: true, creditCard: true,
-    },
-  },
-];
+const API_BASE_URL = 'http://localhost:5000';
 
 function App() {
-
-  //Partners
+  //Partners state - will be fetched from backend
   const [partners, setPartners] = useState([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState(null);
   const [isAddPartnerModalOpen, setIsAddPartnerModalOpen] = useState(false);
+  const [isViewPartnerModalOpen, setIsViewPartnerModalOpen] = useState(false); // New state for ViewPartner modal
 
-  //That Loading Screen Indicator
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  //Loading Screen Indicator
+  const [isAnalyzing, setIsAnalyzing] = useState(false); // For file upload/anonymization process
+  const [loadingPartners, setLoadingPartners] = useState(true); // For initial partners fetch
+  const [error, setError] = useState(null); // For general fetch errors
 
-  //Human Review
+  // Human Review
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [reviewData, setReviewData] = useState(null);
-  const [currentFileBeingReviewed, setCurrentFileBeingReviewed] = useState(null);
+  const [reviewData, setReviewData] = useState(null); // Detected PII for review
+  const [currentFileBeingReviewed, setCurrentFileBeingReviewed] = useState(null); // The file object currently in review
 
-  //Audit
+  // Audit
   const [isAuditLogModalOpen, setIsAuditLogModalOpen] = useState(false);
-  const [auditLogData, setAuditLogData] = useState(null);
+  const [auditLogData, setAuditLogData] = useState(null); // Audit log data for display
 
-  //File Handler
+  // Helper function to determine file type based on extension (still useful for sending to backend)
   const getFileTypeFromExtension = (filename) => {
     const ext = filename.split('.').pop().toLowerCase();
     if (['txt'].includes(ext)) {
@@ -122,159 +47,187 @@ function App() {
     return 'Unknown file';
   };
 
-  useEffect(() => {
-    setPartners(initialPartners);
-    if (initialPartners.length > 0) {
-      setSelectedPartnerId(initialPartners[0].id);
+  // Function to fetch partners from the backend
+  const fetchPartners = useCallback(async () => {
+    setLoadingPartners(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/partners`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setPartners(data);
+      if (!selectedPartnerId && data.length > 0) {
+        setSelectedPartnerId(data[0].id);
+      } else if (selectedPartnerId && !data.some(p => p.id === selectedPartnerId)) {
+        // If selected partner was deleted, select first available or none
+        setSelectedPartnerId(data.length > 0 ? data[0].id : null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch partners:", err);
+      setError("Failed to load partners. Please ensure the backend is running and accessible.");
+    } finally {
+      setLoadingPartners(false);
     }
-  }, []);
+  }, [selectedPartnerId]);
+
+  // Initial data fetch on component mount
+  useEffect(() => {
+    fetchPartners();
+  }, [fetchPartners]);
 
   const selectedPartner = partners.find(p => p.id === selectedPartnerId);
 
-  const handleAddPartner = (newPartnerData) => {
-    const newId = uuidv4();
-    const newPartner = {
-      id: newId,
-      name: newPartnerData.name,
-      logo: newPartnerData.logo || '/icons/default_partner.svg',
-      files: [],
-      detectionSettings: newPartnerData.detectionSettings,
-      dataEncryptionKey: newPartnerData.dataEncryptionKey,
-      filePassword: newPartnerData.filePassword,
-    };
-    setPartners([...partners, newPartner]);
-    setIsAddPartnerModalOpen(false);
-    setSelectedPartnerId(newId);
+  // Handle adding a new partner via backend API
+  const handleAddPartner = async (formData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/create-partner`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      const addedPartner = await response.json();
+      await fetchPartners();
+      setIsAddPartnerModalOpen(false);
+      setSelectedPartnerId(addedPartner.id);
+      alert(`Partner "${addedPartner.name}" added successfully!`);
+    } catch (err) {
+      console.error("Failed to add partner:", err);
+      alert(`Error adding partner: ${err.message}`);
+    }
   };
 
-  const handleFileUpload = (filesToUpload) => {
+  // Handle file upload and initial PII analysis via backend API
+  const handleFileUpload = async (filesToUpload) => {
     if (!selectedPartner) return;
 
     setIsAnalyzing(true);
 
-    setTimeout(() => {
-      const newFilesMetadata = filesToUpload.map(file => {
-        const fileId = uuidv4();
-        const fileType = getFileTypeFromExtension(file.name);
+    const file = filesToUpload[0];
+    const fileType = getFileTypeFromExtension(file.name);
 
-        let detectedPii = [];
-        if (fileType === 'Text file') {
-          detectedPii = [
-            { id: uuidv4(), word: 'Muhammad Zain', entity: 'PERSON', confidence: 95, ignore: false },
-            { id: uuidv4(), word: '+6011-2578107', entity: 'PHONE_NUMBER', confidence: 88, ignore: false },
-            { id: uuidv4(), word: 'Firmu Metro Holdings', entity: 'PERSON', confidence: 60, ignore: false }, // Will be auto-ignored
-            { id: uuidv4(), word: '556-5555-5555', entity: 'CREDIT_CARD', confidence: 10, ignore: false }, // Will be auto-ignored
-          ];
-        } else if (fileType === 'Tabular file') {
-          detectedPii = [
-            { id: uuidv4(), column: 'Name', entity: 'PERSON', topData: ['Wong Chen', 'Hafiz Zawawi'], avgConfidence: 90, ignore: false },
-            { id: uuidv4(), column: 'Identification Number', entity: 'IC_NUMBER', topData: ['820927-07-7473', '521210-08-9327'], avgConfidence: 85, ignore: false },
-            { id: uuidv4(), column: 'Credit Card Number', entity: 'CREDIT_CARD', topData: ['446031846464896', '2956223794907692'], avgConfidence: 50, ignore: false }, // Will be auto-ignored
-          ];
-        }
-        detectedPii = detectedPii.map(item => {
-          const confidence = item.confidence || item.avgConfidence;
-          if (confidence < 70) { //
-            return { ...item, ignore: true };
-          }
-          return item;
-        });
+    const formData = new FormData();
+    formData.append('partner', selectedPartner.name);
+    formData.append('file', file);
 
-        return {
-          id: fileId,
-          filename: file.name,
-          type: fileType,
-          state: 'Pending Review',
-          downloadLink: '#',
-          detectedPii: detectedPii,
-          auditLog: null,
-        };
+    try {
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        body: formData,
       });
 
-      if (newFilesMetadata.length > 0) {
-        setReviewData(newFilesMetadata[0].detectedPii);
-        setCurrentFileBeingReviewed(newFilesMetadata[0]);
-        setIsReviewModalOpen(true);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
+      const backendResponse = await response.json();
+      const detectedPiiFromBackend = backendResponse.review;
+
+      setReviewData(detectedPiiFromBackend);
+      
+      setCurrentFileBeingReviewed({
+        id: backendResponse.file_id,
+        filename: backendResponse.filename,
+        type: backendResponse.type,
+        state: 'Pending Review',
+        downloadLink: '#',
+      });
+      setIsReviewModalOpen(true);
+
+    } catch (err) {
+      console.error("Failed to upload and analyze file:", err);
+      alert(`Error uploading and analyzing file: ${err.message}`);
+    } finally {
       setIsAnalyzing(false);
-    }, 2000);
+    }
   };
 
-  const handleProceedAnonymization = (updatedDetectedPii) => {
+  //Handle proceeding with anonymization after human review
+  const handleProceedAnonymization = async (updatedReviewItems) => {
     setIsReviewModalOpen(false);
     setIsAnalyzing(true);
 
-    const detectedEntitiesSummary = {};
-    updatedDetectedPii.forEach(item => {
-        if (!item.ignore) {
-            const entityType = item.entity;
-            detectedEntitiesSummary[entityType] = (detectedEntitiesSummary[entityType] || 0) + 1;
-        }
-    });
-
-    const auditLogInfo = {
-        intendedFor: selectedPartner.name,
-        anonymizedMethod: 'Encryption',
-        detectedEntitiesSummary: Object.keys(detectedEntitiesSummary).map(entity => ({
-            entity: entity,
-            count: detectedEntitiesSummary[entity]
-        })),
+    const anonymizationPayload = {
+      partner: selectedPartner.name,
+      filename: currentFileBeingReviewed.filename,
+      type: currentFileBeingReviewed.type,
+      review: updatedReviewItems.map(item => {
+        const cleanedItem = {
+          detect: item.detect,
+          confidence: item.confidence / 100, // Convert back to 0.0-1.0
+          ignore: item.ignore,
+        };
+        // Conditionally add 'word', 'start', 'end' for text files
+        if (item.word !== undefined) cleanedItem.word = item.word;
+        if (item.start !== undefined) cleanedItem.start = item.start;
+        if (item.end !== undefined) cleanedItem.end = item.end;
+        // Conditionally add 'column', 'topData' for tabular files
+        if (item.column !== undefined) cleanedItem.column = item.column;
+        if (item.topData !== undefined) cleanedItem.topData = item.topData;
+        
+        return cleanedItem;
+      }),
     };
 
-    setTimeout(() => {
-      setPartners(prevPartners =>
-        prevPartners.map(partner => {
-          if (partner.id === selectedPartnerId) {
-            const updatedFiles = partner.files.map(file => {
-              if (file.id === currentFileBeingReviewed.id) {
-                return {
-                  ...file,
-                  state: 'Anonymized',
-                  auditLog: auditLogInfo,
-                };
-              }
-              return file;
-            });
-            const fileAlreadyExists = updatedFiles.some(f => f.id === currentFileBeingReviewed.id);
-            if (!fileAlreadyExists) {
-                updatedFiles.push({ ...currentFileBeingReviewed, state: 'Anonymized' });
-            }
+    try {
+      const response = await fetch(`${API_BASE_URL}/proceed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(anonymizationPayload),
+      });
 
-            return { ...partner, files: updatedFiles };
-          }
-          return partner;
-        })
-      );
-      setIsAnalyzing(false);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      await fetchPartners();
+
       alert(`${currentFileBeingReviewed.filename} has been anonymized!`);
       setReviewData(null);
       setCurrentFileBeingReviewed(null);
-    }, 1500);
+
+    } catch (err) {
+      console.error("Failed to proceed with anonymization:", err);
+      alert(`Error anonymizing file: ${err.message}`);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
-  //Anonymization
-  const handleToggleFileAnonymization = (partnerId, fileId) => {
-    setPartners(prevPartners =>
-      prevPartners.map(partner => {
-        if (partner.id === partnerId) {
-          const updatedFiles = partner.files.map(file => {
-            if (file.id === fileId) {
-              return {
-                ...file,
-                state: file.state === 'Anonymized' ? 'De-anonymized' : 'Anonymized'
-              };
-            }
-            return file;
-          });
-          return { ...partner, files: updatedFiles };
-        }
-        return partner;
-      })
-    );
+  // Handle toggling file anonymization state (De-anonymize/Anonymize)
+  const handleToggleFileAnonymization = async (partnerId, fileId) => {
+    const partnerToUpdate = partners.find(p => p.id === partnerId);
+    const fileToToggle = partnerToUpdate?.files.find(f => f.id === fileId);
+
+    if (!fileToToggle) return;
+
+    const newState = fileToToggle.state === 'Anonymized' ? 'De-anonymized' : 'Anonymized';
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/files/${fileId}/state`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: newState }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      await fetchPartners();
+      alert(`File state updated to ${newState} for ${fileToToggle.filename}.`);
+    } catch (err) {
+      console.error("Failed to toggle file anonymization:", err);
+      alert(`Error toggling anonymization: ${err.message}`);
+    }
   };
 
-  //Cancel Anonymize
+  //Handle cancelling the review process
   const handleCancelReview = () => {
     setIsReviewModalOpen(false);
     setReviewData(null);
@@ -282,26 +235,106 @@ function App() {
     alert('Review cancelled. File not anonymized.');
   };
 
-  //View Audit Log
-  const handleViewAuditLog = (file) => {
-    if (file.auditLog) {
-      setAuditLogData({
-        filename: file.filename,
-        fileType: file.type,
-        intendedFor: file.auditLog.intendedFor,
-        anonymizedMethod: file.auditLog.anonymizedMethod,
-        detectedEntitiesSummary: file.auditLog.detectedEntitiesSummary,
-      });
-      setIsAuditLogModalOpen(true);
-    } else {
-      alert('Audit log not available for this file. It might not have been anonymized yet.');
+  // Handle viewing the audit log for a file
+  const handleViewAuditLog = async (file) => {
+    if (!file.id) {
+        alert('Cannot view audit log: File ID is missing.');
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/auditlog`);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+        const auditData = await response.json();
+        setAuditLogData({
+            filename: file.filename,
+            fileType: file.type,
+            ...auditData
+        });
+        setIsAuditLogModalOpen(true);
+    } catch (err) {
+        console.error("Failed to fetch audit log:", err);
+        alert(`Audit log not available for this file: ${err.message}`);
     }
   };
 
-  //Close Audit Log
+  // Handle closing the audit log modal
   const handleCloseAuditLog = () => {
     setIsAuditLogModalOpen(false);
     setAuditLogData(null);
+  }
+
+  // --- NEW: Handle opening ViewPartner modal ---
+  const handleViewPartnerDetails = () => {
+    setIsViewPartnerModalOpen(true);
+  };
+
+  // --- NEW: Handle updating a partner ---
+  const handleUpdatePartner = async (partnerId, formData) => {
+      setIsAnalyzing(true); // Show loading overlay during update
+      try {
+          // This endpoint needs to be implemented in your Flask backend (app.py)
+          // It should handle receiving FormData and updating the partner by ID.
+          const response = await fetch(`${API_BASE_URL}/api/partners/${partnerId}`, {
+              method: 'PUT', // Or PATCH
+              body: formData, // Send FormData directly for icon and other fields
+          });
+          if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+          }
+          await fetchPartners(); // Re-fetch partners to update UI
+          setIsViewPartnerModalOpen(false); // Close modal
+          alert('Partner updated successfully!');
+      } catch (err) {
+          console.error("Failed to update partner:", err);
+          alert(`Error updating partner: ${err.message}`);
+      } finally {
+          setIsAnalyzing(false);
+      }
+  };
+
+  // --- NEW: Handle deleting a partner ---
+  const handleDeletePartner = async (partnerId) => {
+      setIsAnalyzing(true); // Show loading overlay during deletion
+      try {
+          // This endpoint needs to be implemented in your Flask backend (app.py)
+          // It should handle deleting the partner by ID.
+          const response = await fetch(`${API_BASE_URL}/api/partners/${partnerId}`, {
+              method: 'DELETE',
+          });
+          if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+          }
+          await fetchPartners(); // Re-fetch partners to update UI
+          setIsViewPartnerModalOpen(false); // Close modal
+          setSelectedPartnerId(null); // Deselect partner after deletion
+          alert('Partner deleted successfully!');
+      } catch (err) {
+          console.error("Failed to delete partner:", err);
+          alert(`Error deleting partner: ${err.message}`);
+      } finally {
+          setIsAnalyzing(false);
+      }
+  };
+
+
+  // --- Initial Loading State for Partners ---
+  if (loadingPartners) {
+    return <LoadingOverlay message="Loading partners..." />;
+  }
+
+  // --- Error State for Partners ---
+  if (error) {
+    return (
+      <div className="app-container error-container">
+        <p className="error-message">{error}</p>
+        <button onClick={fetchPartners} className="retry-button">Retry</button>
+      </div>
+    );
   }
 
   return (
@@ -322,6 +355,7 @@ function App() {
             onFileUpload={handleFileUpload}
             onToggleFileAnonymization={handleToggleFileAnonymization}
             onViewAuditLog={handleViewAuditLog}
+            onViewPartnerDetails={handleViewPartnerDetails}
           />
         ) : (
           <div className="no-partner-selected">
@@ -338,8 +372,18 @@ function App() {
         />
       )}
 
+      {/* View/Edit Partner Modal */}
+      {isViewPartnerModalOpen && selectedPartner && (
+        <ViewPartner
+          partner={selectedPartner} // Pass the currently selected partner
+          onClose={() => setIsViewPartnerModalOpen(false)}
+          onUpdatePartner={handleUpdatePartner} // Pass update handler
+          onDeletePartner={handleDeletePartner} // Pass delete handler
+        />
+      )}
+
       {/* Review Before Anonymization Modal */}
-      {isReviewModalOpen && currentFileBeingReviewed && ( 
+      {isReviewModalOpen && currentFileBeingReviewed && (
         <Review
           fileName={currentFileBeingReviewed.filename}
           fileType={currentFileBeingReviewed.type}
@@ -357,8 +401,8 @@ function App() {
         />
       )}
 
-      {/* Analyzing Overlay */}
-      {isAnalyzing && <LoadingOverlay message="Analyzing..." />}
+      {/* Analyzing Overlay (for file upload/anonymization) */}
+      {isAnalyzing && <LoadingOverlay message="Processing..." />}
     </div>
   );
 }
