@@ -2,9 +2,12 @@ import { FaEye, FaDownload, FaUpload, FaUser, FaTable, FaFileAlt, FaImage, FaFol
 import { useRef } from 'react';
 import './PartnerDetails.css';
 
-const API_BASE_URL = 'http://localhost:5000'; // Ensure this is defined or passed as a prop
+// Ensure this is defined or passed as a prop
+// It's good practice to pass this as a prop from App.jsx for consistency,
+// but for now, it's fine as a const if it matches App.jsx
+const API_BASE_URL = 'http://localhost:5000'; 
 
-function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onViewAuditLog, onViewPartnerDetails }) {
+function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onViewAuditLog, onViewPartnerDetails, apiBaseUrl, defaultIconPath }) {
   const fileInputRef = useRef(null);
 
   const handleUploadButtonClick = () => {
@@ -14,7 +17,7 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
   const handleFileChange = (event) => {
     const uploadedFiles = Array.from(event.target.files);
     if (uploadedFiles.length > 0) {
-      onFileUpload(uploadedFiles);
+      onFileUpload(uploadedFiles); // This passes the ARRAY, which App.jsx now expects
     }
     event.target.value = null;
   };
@@ -35,18 +38,19 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
     <div className="partner-details-container">
       <div className="partner-header-main">
         <div className="partner-info-main">
-          {partner.logo && partner.logo !== '/icons/question-mark.png' ? (
-              <img
-                  src={`${API_BASE_URL}${partner.logo}`}
-                  alt={`${partner.name} logo`}
-                  className="partner-logo-main"
-              />
-          ) : (
-              <img
-                  src="/icons/question-mark.png"
-                  alt="Default Partner Logo"
-                  className="partner-logo-main"
-              />
+          {/* Use apiBaseUrl and defaultIconPath props */}
+          {partner.logo && partner.logo !== defaultIconPath ? ( 
+              <img 
+                  src={`${apiBaseUrl}${partner.logo}`} 
+                  alt={`${partner.name} logo`} 
+                  className="partner-logo-main" 
+              /> 
+          ) : ( 
+              <img 
+                  src={defaultIconPath} 
+                  alt="Default Partner Logo" 
+                  className="partner-logo-main" 
+              /> 
           )}
           <h1>{partner.name}</h1>
         </div>
@@ -59,7 +63,7 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
           </button>
           <input
             type="file"
-            multiple
+            multiple // Keep multiple if you want to allow multiple files, though handleFileUpload only takes the first
             ref={fileInputRef}
             onChange={handleFileChange}
             style={{ display: 'none' }}
@@ -106,9 +110,15 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
                       </button>
                     </td>
                     <td>
-                      <a href={file.downloadLink} download>
-                        <FaDownload />
-                      </a>
+                      {/* Ensure file.downloadLink is correctly populated from fetchPartners */}
+                      {file.state === 'Anonymized' && file.downloadLink ? ( // Only show download if anonymized and link exists
+                        <a href={file.downloadLink} download>
+                          <FaDownload />
+                        </a>
+                      ) : (
+                        // Optional: Render a disabled icon or nothing if not ready for download
+                        <FaDownload className="disabled-icon" title="File not anonymized yet" />
+                      )}
                     </td>
                   </tr>
                 ))

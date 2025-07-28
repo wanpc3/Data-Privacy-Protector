@@ -41,7 +41,8 @@ function AuditLog({ auditData, onClose }) {
                 </tr>
               </thead>
               <tbody>
-                {auditData.detectedEntitiesSummary && auditData.detectedEntitiesSummary.length > 0 ? (
+                {/* Ensure auditData.detectedEntitiesSummary exists and is an array */}
+                {auditData.detectedEntitiesSummary && Array.isArray(auditData.detectedEntitiesSummary) && auditData.detectedEntitiesSummary.length > 0 ? (
                   auditData.detectedEntitiesSummary.map((entity, index) => (
                     <tr key={index}>
                       <td>{entity.entity}</td>

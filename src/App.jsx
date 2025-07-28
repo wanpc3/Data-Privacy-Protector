@@ -3,20 +3,21 @@ import { v4 as uuidv4 } from 'uuid';
 import Sidenav from './Components/Sidenav/Sidenav';
 import PartnerDetails from './Components/Partner/PartnerDetails';
 import AddPartner from './Components/Partner/AddPartner';
-import ViewPartner from './Components/Partner/ViewPartner'; // Make sure this is imported
+import ViewPartner from './Components/Partner/ViewPartner';
 import LoadingOverlay from './Components/Common/LoadingOverlay';
 import Review from './Components/Review/Review';
 import AuditLog from './Components/AuditLog/AuditLog';
 import './App.css';
 
 const API_BASE_URL = 'http://localhost:5000';
+const DEFAULT_FRONTEND_ICON_PATH = '/icons/question-mark.png';
 
 function App() {
   //Partners state - will be fetched from backend
   const [partners, setPartners] = useState([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState(null);
   const [isAddPartnerModalOpen, setIsAddPartnerModalOpen] = useState(false);
-  const [isViewPartnerModalOpen, setIsViewPartnerModalOpen] = useState(false); // New state for ViewPartner modal
+  const [isViewPartnerModalOpen, setIsViewPartnerModalOpen] = useState(false);
 
   //Loading Screen Indicator
   const [isAnalyzing, setIsAnalyzing] = useState(false); // For file upload/anonymization process
@@ -30,7 +31,7 @@ function App() {
 
   // Audit
   const [isAuditLogModalOpen, setIsAuditLogModalOpen] = useState(false);
-  const [auditLogData, setAuditLogData] = useState(null); // Audit log data for display
+  const [auditLogData, setAuditLogData] = useState(null);
 
   // Helper function to determine file type based on extension (still useful for sending to backend)
   const getFileTypeFromExtension = (filename) => {
@@ -57,12 +58,21 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      setPartners(data);
-      if (!selectedPartnerId && data.length > 0) {
-        setSelectedPartnerId(data[0].id);
-      } else if (selectedPartnerId && !data.some(p => p.id === selectedPartnerId)) {
+      const partnersWithFiles = data.map(partner => ({
+        ...partner,
+        files: partner.files ? partner.files.map(file => ({
+          ...file,
+          // Ensure downloadLink is constructed based on file.id
+          downloadLink: file.id ? `${API_BASE_URL}/download/${file.id}` : null 
+        })) : []
+      }));
+
+      setPartners(partnersWithFiles);
+      if (!selectedPartnerId && partnersWithFiles.length > 0) {
+        setSelectedPartnerId(partnersWithFiles[0].id);
+      } else if (selectedPartnerId && !partnersWithFiles.some(p => p.id === selectedPartnerId)) {
         // If selected partner was deleted, select first available or none
-        setSelectedPartnerId(data.length > 0 ? data[0].id : null);
+        setSelectedPartnerId(partnersWithFiles.length > 0 ? partnersWithFiles[0].id : null);
       }
     } catch (err) {
       console.error("Failed to fetch partners:", err);
@@ -102,12 +112,21 @@ function App() {
   };
 
   // Handle file upload and initial PII analysis via backend API
+  // This now correctly expects an array of files, as passed from PartnerDetails.jsx
   const handleFileUpload = async (filesToUpload) => {
-    if (!selectedPartner) return;
+    if (!selectedPartner) {
+        alert("Please select a partner first.");
+        return;
+    }
+    // Check if filesToUpload is empty or not an array with at least one element
+    if (!Array.isArray(filesToUpload) || filesToUpload.length === 0) {
+        alert("No file selected for upload.");
+        return;
+    }
 
     setIsAnalyzing(true);
 
-    const file = filesToUpload[0];
+    const file = filesToUpload[0]; // Take the first file from the array
     const fileType = getFileTypeFromExtension(file.name);
 
     const formData = new FormData();
@@ -135,7 +154,8 @@ function App() {
         filename: backendResponse.filename,
         type: backendResponse.type,
         state: 'Pending Review',
-        downloadLink: '#',
+        // downloadLink is not needed here as it will be set upon successful anonymization
+        // and re-fetching of partners.
       });
       setIsReviewModalOpen(true);
 
@@ -153,9 +173,7 @@ function App() {
     setIsAnalyzing(true);
 
     const anonymizationPayload = {
-      partner: selectedPartner.name,
-      filename: currentFileBeingReviewed.filename,
-      type: currentFileBeingReviewed.type,
+      file_id: currentFileBeingReviewed.id, // Pass the file_id directly
       review: updatedReviewItems.map(item => {
         const cleanedItem = {
           detect: item.detect,
@@ -186,9 +204,10 @@ function App() {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      await fetchPartners();
+      const backendResponse = await response.json(); // Get response from backend (e.g., anonymized filename)
+      await fetchPartners(); // Re-fetch all partners and their files to update the table
 
-      alert(`${currentFileBeingReviewed.filename} has been anonymized!`);
+      alert(`${backendResponse.filename} has been anonymized!`);
       setReviewData(null);
       setCurrentFileBeingReviewed(null);
 
@@ -219,7 +238,7 @@ function App() {
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
-      await fetchPartners();
+      await fetchPartners(); // Re-fetch partners to get updated file state and download link
       alert(`File state updated to ${newState} for ${fileToToggle.filename}.`);
     } catch (err) {
       console.error("Failed to toggle file anonymization:", err);
@@ -248,12 +267,8 @@ function App() {
             throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
         const auditData = await response.json();
-        setAuditLogData({
-            filename: file.filename,
-            fileType: file.type,
-            ...auditData
-        });
-        setIsAuditLogModalOpen(true);
+        setAuditLogData(auditData); // Set the auditData directly
+        setIsAuditLogModalOpen(true); // Open the audit log modal
     } catch (err) {
         console.error("Failed to fetch audit log:", err);
         alert(`Audit log not available for this file: ${err.message}`);
@@ -266,61 +281,10 @@ function App() {
     setAuditLogData(null);
   }
 
-  // --- NEW: Handle opening ViewPartner modal ---
+  // --- Handle opening ViewPartner modal ---
   const handleViewPartnerDetails = () => {
     setIsViewPartnerModalOpen(true);
   };
-
-  // --- NEW: Handle updating a partner ---
-  const handleUpdatePartner = async (partnerId, formData) => {
-      setIsAnalyzing(true); // Show loading overlay during update
-      try {
-          // This endpoint needs to be implemented in your Flask backend (app.py)
-          // It should handle receiving FormData and updating the partner by ID.
-          const response = await fetch(`${API_BASE_URL}/api/partners/${partnerId}`, {
-              method: 'PUT', // Or PATCH
-              body: formData, // Send FormData directly for icon and other fields
-          });
-          if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-          }
-          await fetchPartners(); // Re-fetch partners to update UI
-          setIsViewPartnerModalOpen(false); // Close modal
-          alert('Partner updated successfully!');
-      } catch (err) {
-          console.error("Failed to update partner:", err);
-          alert(`Error updating partner: ${err.message}`);
-      } finally {
-          setIsAnalyzing(false);
-      }
-  };
-
-  // --- NEW: Handle deleting a partner ---
-  const handleDeletePartner = async (partnerId) => {
-      setIsAnalyzing(true); // Show loading overlay during deletion
-      try {
-          // This endpoint needs to be implemented in your Flask backend (app.py)
-          // It should handle deleting the partner by ID.
-          const response = await fetch(`${API_BASE_URL}/api/partners/${partnerId}`, {
-              method: 'DELETE',
-          });
-          if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-          }
-          await fetchPartners(); // Re-fetch partners to update UI
-          setIsViewPartnerModalOpen(false); // Close modal
-          setSelectedPartnerId(null); // Deselect partner after deletion
-          alert('Partner deleted successfully!');
-      } catch (err) {
-          console.error("Failed to delete partner:", err);
-          alert(`Error deleting partner: ${err.message}`);
-      } finally {
-          setIsAnalyzing(false);
-      }
-  };
-
 
   // --- Initial Loading State for Partners ---
   if (loadingPartners) {
@@ -345,6 +309,8 @@ function App() {
         selectedPartnerId={selectedPartnerId}
         onSelectPartner={setSelectedPartnerId}
         onAddPartnerClick={() => setIsAddPartnerModalOpen(true)}
+        apiBaseUrl={API_BASE_URL}
+        defaultIconPath={DEFAULT_FRONTEND_ICON_PATH}
       />
 
       {/* Main Content Area */}
@@ -356,6 +322,8 @@ function App() {
             onToggleFileAnonymization={handleToggleFileAnonymization}
             onViewAuditLog={handleViewAuditLog}
             onViewPartnerDetails={handleViewPartnerDetails}
+            apiBaseUrl={API_BASE_URL}
+            defaultIconPath={DEFAULT_FRONTEND_ICON_PATH}
           />
         ) : (
           <div className="no-partner-selected">
@@ -375,10 +343,10 @@ function App() {
       {/* View/Edit Partner Modal */}
       {isViewPartnerModalOpen && selectedPartner && (
         <ViewPartner
-          partner={selectedPartner} // Pass the currently selected partner
+          partner={selectedPartner}
           onClose={() => setIsViewPartnerModalOpen(false)}
-          onUpdatePartner={handleUpdatePartner} // Pass update handler
-          onDeletePartner={handleDeletePartner} // Pass delete handler
+          apiBaseUrl={API_BASE_URL}
+          defaultIconPath={DEFAULT_FRONTEND_ICON_PATH}
         />
       )}
 

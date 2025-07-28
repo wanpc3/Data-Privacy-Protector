@@ -4,9 +4,15 @@ Hello! Our team has choosen to solve the first problem (Data Privacy Protector).
 
 ## How To Start the App?
 
-To run this project, you will need to 
+To run this project, you will need to open the terminal and type:
 
-### npm install
+## To run frontend:
+1) npm start
+
+### To run backend:
+1) cd backend
+2) source venv/bin/activate
+3) python app.py
 
 ## Chosen Problem Statement
 
