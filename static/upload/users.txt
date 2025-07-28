@@ -1,6 +1,6 @@
 ID, Name, Email, Phone, Address, DateOfBirth
-1, FXnpRRCo7fjC3ndmDctpoJzk3gUpzN1Z00Dsjo5HzyY=, alice.johnson@example.com, 555-1234, 123 Maple St, 1990-04-12
-2, DGRi0CTXQpdXpxwP3JGmS_zemTvHmJMANNXTQQNqlsc=, bob.smith@example.com, 555-5678, 456 Oak Ave, 1985-09-23
-3, MwQna8x03SHLqKiFHqee-iFUnmhdV_vwH-trs6KIaPw=, charlie.lee@example.com, 555-8765, 789 Pine Rd, 1992-12-05
-4, q_RWFaBWzu8z-A4JN_OXLC_9zA0y_b9AY1V3w4LjgaE=, diana.prince@example.com, 555-4321, 321 Cedar Blvd, 1988-07-14
-5, k-zaC0c7OrvOe3RPDXHvSuipbufrjUrhoP9N4puRlTk=, ethan.wright@example.com, 555-0001, 654 Elm Ln, 1995-03-30
+1, Alice Johnson, alice.johnson@example.com, 555-1234, 123 Maple St, 1990-04-12
+2, Bob Smith, bob.smith@example.com, 555-5678, 456 Oak Ave, 1985-09-23
+3, Charlie Lee, charlie.lee@example.com, 555-8765, 789 Pine Rd, 1992-12-05
+4, Diana Prince, diana.prince@example.com, 555-4321, 321 Cedar Blvd, 1988-07-14
+5, Ethan Wright, ethan.wright@example.com, 555-0001, 654 Elm Ln, 1995-03-30

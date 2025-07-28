@@ -177,7 +177,7 @@ def analyzeTxt(job):
 # Process Function
 #==================================================================
 
-def processTxtFile(data):
+def processTxt(data):
     
     #-------------------------------------------------------------
     # 1) Extract data to manually build analyzerResult-
@@ -200,21 +200,18 @@ def processTxtFile(data):
         for item in original
     ]
 
-    print("=== Reach Here 2===")
     #------------------------------------------------------------
     # 2) Open the file to be encrypt
     inpath = os.path.join("temp", data["filename"])
     with open(inpath, "r", encoding="utf-8") as f:
         TxtFile = f.read()
     
-    print("=== Reach Here 3===")
     #-----------------------------------------------------------
     #3) Get Encryption key for that partner in database
     Partner = Query()
     partner = db.search(Partner.partner == data["partner"])[0]
     KEY = hashlib.sha256(partner["key"].encode()).digest()
 
-    print("=== Reach Here 4===")
     #-----------------------------------------------------------
     #4) Encrypt...
     anonyResult = anonymizer.anonymize(
@@ -223,7 +220,6 @@ def processTxtFile(data):
 	    operators={"DEFAULT" : OperatorConfig ("encrypt", {"key": KEY})}
     )
 
-    print("=== Reach Here 5===")
     #---------------------------------------------------------
     # 5) Save encrypted data(same Filename) & delete old file
     outpath = os.path.join("static/upload", data["filename"])
@@ -231,13 +227,9 @@ def processTxtFile(data):
         outFile.write(anonyResult.text)
     os.remove(inpath)
 
-    print("=== Reach Here 6===")
     #--------------------------------------------------------------
     # 6) Update database
     encrypt = []
-
-    print("=== Confirmation ===")
-    print(type(anonyResult.items[0]))
     for item in anonyResult.items:
         encrypt.append({"start": item.start, "end": item.end})
     encrypt.sort(key=lambda x: x["start"])
@@ -264,7 +256,96 @@ def processTxtFile(data):
         doc_ids=[partner.doc_id]
     )
 
-    print("=== Reach Here 7===")
+#=================================================================
+# Deanonymize
+#================================================================
+
+def deanonymizeTxt(data):
+    #1) Open file that want to be decrypted
+    path = data["file"]["download"]
+    with open(path, "r", encoding="utf-8") as f:
+        TxtFile = f.read()
+    
+    #----------------------------------------------------------
+    #2) Manually generate OperatorResult for reversal
+    reverse = [
+        OperatorResult(
+            entity_type="PERSON",
+            start=item["start"],
+            end=item["end"],
+            text=TxtFile[item["start"]:item["end"]],
+            operator="encrypt"
+        )
+        for item in data["file"]["encrypt"]
+    ]
+
+    #-------------------------------------------------------------
+    #3 Preceed to decrypt (de-anonymize)
+    KEY = hashlib.sha256(data["partner"]["key"].encode()).digest()
+    deanonyResult = denonymizer.deanonymize(
+        text=TxtFile,
+        entities=reverse,
+        operators={"DEFAULT" : OperatorConfig ("decrypt", {"key": KEY})}
+    )
+
+    #----------------------------------------------------------------------------
+    #4 Override the file
+    with open(path, "w", encoding="utf-8") as outFile:
+        outFile.write(deanonyResult.text)
+    
+    #--------------------------------------------------------------------------
+    #5 Update database to say this file state change to de-anonymize
+    files = data["partner"]["files"]
+    for idx, f in enumerate(files):
+        if f["filename"] == data["file"]["filename"]:
+            files[idx]["anonymized"] = False
+            break
+    db.update({"files": files}, doc_ids=[data["partner"].doc_id])
+
+#=================================================================
+# Anonymize
+#================================================================
+
+def anonymizeTxt(data):
+    #1) Open file that want to be decrypted
+    path = data["file"]["download"]
+    with open(path, "r", encoding="utf-8") as f:
+        TxtFile = f.read()
+
+    #--------------------------------------------------------
+    #2) Manually generate RecognizerResult for reversal
+    analyzeResult = [
+        RecognizerResult(
+            entity_type="PERSON",
+            start=item["start"],
+            end=item["end"],
+            score=1.0
+        )
+        for item in data["file"]["original"]
+    ]
+
+    #-------------------------------------------------------------
+    #4 Preceed to encrypt (re-anonymize)
+    KEY = hashlib.sha256(data["partner"]["key"].encode()).digest()
+    anonyResult = anonymizer.anonymize(
+        text=TxtFile, 
+        analyzer_results=analyzeResult, 
+        operators={"DEFAULT" : OperatorConfig ("encrypt", {"key": KEY})}
+    )
+
+    #----------------------------------------------------------------------------
+    #4 Override the file
+    with open(path, "w", encoding="utf-8") as outFile:
+        outFile.write(anonyResult.text)
+    
+    #--------------------------------------------------------------------------
+    #5 Update database to say this file state change to de-anonymize
+    files = data["partner"]["files"]
+    for idx, f in enumerate(files):
+        if f["filename"] == data["file"]["filename"]:
+            files[idx]["anonymized"] = True
+            break
+    db.update({"files": files}, doc_ids=[data["partner"].doc_id])
 
 #==================================================================
 # ROUTES
@@ -361,7 +442,7 @@ def process():
         
         if data["type"] == "Text File":
             print("=== Reach Here 1===")
-            processTxtFile(data)
+            processTxt(data)
         elif data["type"] == "Tabular File":
             pass
          
@@ -369,6 +450,68 @@ def process():
 
     except Exception as e:
         print(e)
+        return "Server Error", 500
+
+@app.route("/deanonymize", methods=["POST"])
+def deanony():
+    try:
+        meta = {
+            "partner":   request.form.get("partner"),
+            "filename":  request.form.get("filename"),
+        }
+        if not all(meta.values()):
+            return "Bad Request", 400
+
+        #1) Get partner object, with that get file object from database
+        Partner = Query()
+        partner = db.search(Partner.partner == meta["partner"])[0]
+
+        file = next((f for f in partner.get("files", []) if f.get("filename") == meta["filename"]), None)
+
+        data = {
+            "partner": partner,
+            "file": file
+        }
+        if file["type"] == "Text File":
+            deanonymizeTxt(data)
+        elif file["type"] == "Tabular File":
+            pass
+
+        return "OK", 200
+
+    except Exception as e:
+        print("Error:", e)
+        return "Server Error", 500
+
+@app.route("/anonymize", methods=["POST"])
+def anony():
+    try:
+        meta = {
+            "partner":   request.form.get("partner"),
+            "filename":  request.form.get("filename"),
+        }
+        if not all(meta.values()):
+            return "Bad Request", 400
+
+        #1) Get partner object, with that get file object from database
+        Partner = Query()
+        partner = db.search(Partner.partner == meta["partner"])[0]
+
+        file = next((f for f in partner.get("files", []) if f.get("filename") == meta["filename"]), None)
+
+        data = {
+            "partner": partner,
+            "file": file
+        }
+        if file["type"] == "Text File":
+            anonymizeTxt(data)
+        elif file["type"] == "Tabular File":
+            pass
+
+        return "OK", 200
+
+    except Exception as e:
+        print("Error:", e)
         return "Server Error", 500
 
 #=================================================================
