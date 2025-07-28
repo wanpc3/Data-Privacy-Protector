@@ -18,9 +18,10 @@ from presidio_anonymizer.entities import (
     OperatorConfig
 )
 from presidio_anonymizer import AnonymizerEngine, DeanonymizeEngine
-from collections import Counter
+from collections import Counter, defaultdict
 from werkzeug.utils import secure_filename
 from tinydb import TinyDB, Query
+import hashlib
 import pandas as pd
 import pprint
 import os
@@ -124,6 +125,8 @@ analyzer.registry.add_recognizer(MalaysiaPhoneRecognizer())
 analyzer.registry.add_recognizer(GenericPassportRecognizer())
 analyzer.registry.add_recognizer(MalaysianICRecognizer())
 analyzer.registry.add_recognizer(MalaysiaAddressRecognizer())
+anonymizer = AnonymizerEngine()
+denonymizer = DeanonymizeEngine()
 
 #===================================================================
 #CONSTANT
@@ -159,8 +162,6 @@ def analyzeTxt(job):
             score_threshold=0.3
         )
 
-    print("=======================")
-    print(partner["detection"])
     for r in results:
         new_review = {
             "detect": r.entity_type.removeprefix("US_"),
@@ -172,6 +173,98 @@ def analyzeTxt(job):
         new_review["ignore"] = new_review["confidence"] < 75
         job["review"].append(new_review)
             
+#==================================================================
+# Process Function
+#==================================================================
+
+def processTxtFile(data):
+    
+    #-------------------------------------------------------------
+    # 1) Extract data to manually build analyzerResult-
+    original = []
+    for entry in data.get("review", []):
+        if not entry.get("ignore", False):
+            original.append({
+                "start": entry["start"],
+                "end": entry["end"]
+            })
+    original.sort(key=lambda x: x["start"])
+
+    analyzeResult = [
+        RecognizerResult(
+            entity_type="PERSON",
+            start=item["start"],
+            end=item["end"],
+            score=1.0
+        )
+        for item in original
+    ]
+
+    print("=== Reach Here 2===")
+    #------------------------------------------------------------
+    # 2) Open the file to be encrypt
+    inpath = os.path.join("temp", data["filename"])
+    with open(inpath, "r", encoding="utf-8") as f:
+        TxtFile = f.read()
+    
+    print("=== Reach Here 3===")
+    #-----------------------------------------------------------
+    #3) Get Encryption key for that partner in database
+    Partner = Query()
+    partner = db.search(Partner.partner == data["partner"])[0]
+    KEY = hashlib.sha256(partner["key"].encode()).digest()
+
+    print("=== Reach Here 4===")
+    #-----------------------------------------------------------
+    #4) Encrypt...
+    anonyResult = anonymizer.anonymize(
+	    text=TxtFile, 
+	    analyzer_results=analyzeResult, 
+	    operators={"DEFAULT" : OperatorConfig ("encrypt", {"key": KEY})}
+    )
+
+    print("=== Reach Here 5===")
+    #---------------------------------------------------------
+    # 5) Save encrypted data(same Filename) & delete old file
+    outpath = os.path.join("static/upload", data["filename"])
+    with open(outpath, "w", encoding="utf-8") as outFile:
+        outFile.write(anonyResult.text)
+    os.remove(inpath)
+
+    print("=== Reach Here 6===")
+    #--------------------------------------------------------------
+    # 6) Update database
+    encrypt = []
+
+    print("=== Confirmation ===")
+    print(type(anonyResult.items[0]))
+    for item in anonyResult.items:
+        encrypt.append({"start": item.start, "end": item.end})
+    encrypt.sort(key=lambda x: x["start"])
+
+    # Log summary
+    counter = defaultdict(int)
+    for item in data.get("review", []):
+        if not item.get("ignore", False):
+            counter[item["detect"]] += 1
+    log = [{"detect": k, "total": v} for k, v in counter.items()]
+
+    file = {
+        "filename": data["filename"],
+        "type"   : data["type"],
+        "anonymized": True,
+        "download": outpath,
+        "log": log,
+        "original": original,
+        "encrypt": encrypt
+    }
+
+    db.update(
+        lambda record: record["files"].append(file),
+        doc_ids=[partner.doc_id]
+    )
+
+    print("=== Reach Here 7===")
 
 #==================================================================
 # ROUTES
@@ -257,6 +350,26 @@ def upload():
         print(e)
         return "Server Error", 500
 
+@app.route("/process", methods=["POST"])
+def process():
+    try:
+        data = request.get_json(force=True)
+
+        required_fields = {"partner", "filename", "type", "review"}
+        if not all(field in data for field in required_fields):
+            return "Bad Request", 400
+        
+        if data["type"] == "Text File":
+            print("=== Reach Here 1===")
+            processTxtFile(data)
+        elif data["type"] == "Tabular File":
+            pass
+         
+        return "OK", 200
+
+    except Exception as e:
+        print(e)
+        return "Server Error", 500
 
 #=================================================================
 

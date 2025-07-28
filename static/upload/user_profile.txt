@@ -1,0 +1,17 @@
+User ID:           102345
+Full Name:         DwQva1X9UsFyfZlWU1HRNDZsg22u1CLf7BFkKWVIZQjfKNQ2MssU2MzQ8H7Bn6E5
+Username:          jenni_c
+Email:             MchXPTv-bK-rNbkWakRgWnVFZCw6xDtVR2mo_CmNHMExTzfNH9U9540e4cg1a9jc
+Phone:             Fd_Z1DukcSUBLhKhgwjm7RWWzHeFrTW0DJNzv0tzC1w=
+Address:           789 Willow Street, Springfield, IL 62704, USA
+Date of Birth:     1993-11-21
+Gender:            Female
+Account Created:   2022-03-15 14:23:08 UTC
+Last Login:        2025-07-22 18:47:52 UTC
+Status:            Active
+Email Verified:    Yes
+Two-Factor Enabled:Yes
+User Role:         Standard User
+Preferred Language:English
+Timezone:          UTC-6 (Central Time)
+IC:                XkZsr31oMnR4fx3MI9nVi3_KFuCPDPSRHrSkEK2jctU=
