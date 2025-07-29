@@ -23,6 +23,7 @@ from werkzeug.utils import secure_filename
 from tinydb import TinyDB, Query
 import hashlib
 import pandas as pd
+import numpy as np
 import pprint
 import os
 
@@ -92,8 +93,21 @@ class MalaysianICRecognizer(PatternRecognizer):
 
 address_pattern = Pattern(
     name="malaysia_address_pattern",
-    regex=r"\b(?:Jalan|Lorong|Taman|Persiaran|Lebuh|Kg|Kampung|Lrg|Blok)\b.*",
-    score=1.0,
+    regex=(
+                r"\b(?:"
+                # Address-related terms
+                r"Jalan|Lorong|Taman|Persiaran|Lebuh|Lebuhraya|Kampung|Kg|Lrg|Blok|"
+                r"Desa|Bandar|Daerah|Poskod|Alamat|Pekan|Fasa|Seksyen|Lot|No"
+                r")\b.*?\b(?:"
+                # States, Federal Territories, Cities
+                r"Selangor|Johor|Kedah|Kelantan|Melaka|Negeri Sembilan|Pahang|"
+                r"Penang|Pulau Pinang|Perak|Perlis|Sabah|Sarawak|Terengganu|"
+                r"Kuala Lumpur|Putrajaya|Labuan|"
+                r"Shah Alam|Ipoh|Seremban|George Town|Alor Setar|Kuantan|"
+                r"Johor Bahru|Kota Bharu|Kuching|Miri|Kota Kinabalu|Butterworth"
+                r")\b"
+            ),
+            score=1.0
 )
 
 class MalaysiaAddressRecognizer(PatternRecognizer):
@@ -102,36 +116,28 @@ class MalaysiaAddressRecognizer(PatternRecognizer):
             supported_entity="LOCATION",
             patterns=[address_pattern],
             name="Malaysia Address Recognizer",
-            context=[
-                # 🗺️ States
-                "Selangor", "Johor", "Kedah", "Kelantan", "Melaka",
-                "Negeri Sembilan", "Pahang", "Penang", "Pulau Pinang",
-                "Perak", "Perlis", "Sabah", "Sarawak", "Terengganu",
-                # 🏙️ Federal Territories
-                "Kuala Lumpur", "Putrajaya", "Labuan",
-                # 🏘️ Address/road-related terms
-                "Jalan", "Lorong", "Taman", "Persiaran", "Lebuh", "Lebuhraya",
-                "Kampung", "Kg", "Lrg", "Blok", "Desa", "Bandar", "Daerah",
-                "Poskod", "Alamat", "Pekan", "Fasa", "Seksyen", "Lot", "No",
-                # 📍 Cities (sample)
-                "Shah Alam", "Ipoh", "Seremban", "George Town", "Alor Setar",
-                "Kuantan", "Johor Bahru", "Kota Bharu", "Kuching", "Miri",
-                "Kota Kinabalu", "Butterworth", "Putrajaya", "Labuan",
-            ],
         )
 
 analyzer = AnalyzerEngine()
 analyzer.registry.add_recognizer(MalaysiaPhoneRecognizer())
 analyzer.registry.add_recognizer(GenericPassportRecognizer())
 analyzer.registry.add_recognizer(MalaysianICRecognizer())
-analyzer.registry.add_recognizer(MalaysiaAddressRecognizer())
+analyzer.registry.recognizers.insert(0, MalaysiaAddressRecognizer())
 anonymizer = AnonymizerEngine()
 denonymizer = DeanonymizeEngine()
 
 #===================================================================
-#CONSTANT
+# UNITS
 #==================================================================
 
+def normalize_values(values):
+    first = values[0]
+    
+    if isinstance(first, np.integer):
+        return [int(v) for v in values]
+    elif isinstance(first, np.floating):
+        return [float(v) for v in values]
+    return values
 
 #===================================================================
 # INIT
@@ -149,18 +155,28 @@ os.makedirs("temp", exist_ok=True)
 #==================================================================
 
 def analyzeTxt(job):
-    with open(f"./temp/{job["filename"]}", "r", encoding="utf-8") as f:
+    #1) Open file to analyze
+    path = os.path.join("temp", job["filename"])
+    with open(path, "r", encoding="utf-8") as f:
         TxtFile = f.read()
     
+    #---------------------------------------------------------
+    # 2) Get partner detection list
     Partner = Query()
     partner = db.search(Partner.partner == job["partner"])[0]
     
+    # --------------------------------------------------------
+    #3) Analyze
+
     results = analyzer.analyze(
             text=TxtFile,
             language="en",
             entities=partner["detection"],
             score_threshold=0.3
         )
+
+    #-----------------------------------------------------
+    #4) Generate review report
 
     for r in results:
         new_review = {
@@ -172,7 +188,98 @@ def analyzeTxt(job):
         }
         new_review["ignore"] = new_review["confidence"] < 75
         job["review"].append(new_review)
-            
+
+
+def analyzeTable(job):
+
+    #1) Open file to analyze
+    ext = os.path.splitext(job["filename"])[1].lower()
+    path = os.path.join("temp", job["filename"])
+
+    if ext in {".xls", ".xlsx"}:
+        df = pd.read_excel(path)
+    else:
+        df = pd.read_csv(path)
+    
+    #---------------------------------------------
+    #2 Sample data for analysis
+
+    for col in df.columns:
+        series = df[col][df[col].notna() & (df[col].astype(str).str.strip() != "")]
+        if series.empty:
+            continue
+
+        n = len(series)
+        thirds = n // 3
+
+        # Index segments
+        top_indices = series.iloc[:thirds].index
+        mid_indices = series.iloc[thirds:2*thirds].index
+        bottom_indices = series.iloc[2*thirds:].index
+
+        def get_random_nonempty(indices):
+            subset = series.loc[indices].dropna()
+            if not subset.empty:
+                return subset.sample(1).values[0]
+            return None
+
+        # Sampled values
+        top_val = get_random_nonempty(top_indices)
+        mid_val = get_random_nonempty(mid_indices)
+        bot_val = get_random_nonempty(bottom_indices)
+
+        values = normalize_values([top_val, mid_val, bot_val])
+        job["review"].append({
+            "column": col,
+            "words": values,
+            "results":[]
+        })
+    
+    #---------------------------------------------------------
+    # 3) Get partner detection list
+    Partner = Query()
+    partner = db.search(Partner.partner == job["partner"])[0]
+    
+    #-------------------------------------------------------
+    #4) Analyze
+
+    for data in job["review"]:
+        vals = data["words"]
+
+        for v in vals:
+            analyzeResult = analyzer.analyze(
+                text=str(v),
+                language="en",
+                entities=partner["detection"],
+                score_threshold=0.3
+            )
+
+            # May detect multiple entity we only take the highest score
+            if any(analyzeResult):
+                best = max(analyzeResult, key=lambda r: r.score)
+                data["results"].append({
+                    "entity": best.entity_type,
+                    "score": best.score,
+                })
+
+    # Clean data. Remove none-PII column
+    # Find majority entity and avg the score
+    job["review"] = [entry for entry in job["review"] if len(entry.get("results", [])) > 1]
+
+    for data in job["review"]:
+        result = data["results"]
+        entity_counts = Counter([r["entity"] for r in result if r is not None])
+        majority_entity = entity_counts.most_common(1)[0][0]
+        matching_scores = [r["score"] for r in result if r["entity"] == majority_entity]
+        avg_score = sum(matching_scores) / len(matching_scores)
+        data["entity"] = majority_entity.removeprefix("US_")
+        data["confidence"] = int(avg_score * 100)
+    
+    for entry in job["review"]:
+        entry["ignore"] = entry["confidence"] < 75
+        if "results" in entry:
+            del entry["results"]
+
 #==================================================================
 # Process Function
 #==================================================================
@@ -256,6 +363,77 @@ def processTxt(data):
         doc_ids=[partner.doc_id]
     )
 
+def processTable(data):
+    #-------------------------------------------------------------
+    # 1) For table, need entity & column name to anonymize
+    log = []
+    for entry in data.get("review", []):
+        if not entry.get("ignore", False):
+            log.append({
+                "column": entry["column"],
+                "detect": entry["entity"]
+            })
+
+    #------------------------------------------------------------
+    # 2) Open the Tabular file to be encrypt
+    ext = os.path.splitext(data["filename"])[1].lower()
+    inpath = os.path.join("temp", data["filename"])
+
+    if ext in {".xls", ".xlsx"}:
+        df = pd.read_excel(inpath)
+    else:
+        df = pd.read_csv(inpath)
+
+    #-----------------------------------------------------------
+    #3) Get Encryption key for that partner in database
+    Partner = Query()
+    partner = db.search(Partner.partner == data["partner"])[0]
+    KEY = hashlib.sha256(partner["key"].encode()).digest()
+
+    #-----------------------------------------------------------
+    #4) Encrypt columns
+    target_columns = [entry["column"] for entry in log]
+
+    for col in target_columns:
+        if col in df.columns:
+            for i, value in df[col].items():
+                if pd.notna(value) and str(value).strip():
+                    value = str(value)
+                    anonyResult = anonymizer.anonymize(
+                        text=value, 
+                        analyzer_results= [RecognizerResult(
+                                            entity_type="PERSON",
+                                            start=0,end=len(value) - 1,
+                                            score=1.0
+                                            )],
+                        operators={"DEFAULT" : OperatorConfig ("encrypt", {"key": KEY})}
+                    )
+                    df.at[i, col] = anonyResult.text
+    
+    #---------------------------------------------------------
+    # 5) Save encrypted data(same Filename) & delete old file
+    outpath = os.path.join("static/upload", data["filename"])
+    if ext in {".xls", ".xlsx"}:
+        df.to_excel(outpath, index=False)
+    else:
+        df.to_csv(outpath, index=False)
+    os.remove(inpath)
+
+    #--------------------------------------------------------------
+    # 6) Update database
+    file = {
+        "filename": data["filename"],
+        "type"   : data["type"],
+        "anonymized": True,
+        "download": outpath,
+        "log": log,
+    }
+
+    db.update(
+        lambda record: record["files"].append(file),
+        doc_ids=[partner.doc_id]
+    )
+    
 #=================================================================
 # Deanonymize
 #================================================================
@@ -302,6 +480,54 @@ def deanonymizeTxt(data):
             break
     db.update({"files": files}, doc_ids=[data["partner"].doc_id])
 
+def deanonymizeTable(data):
+    #1) Open file
+    path = data["file"]["download"]
+
+    ext = os.path.splitext(data["file"]["filename"])[1].lower()
+    if ext in {".xls", ".xlsx"}:
+        df = pd.read_excel(path)
+    else:
+        df = pd.read_csv(path)
+    
+    #-------------------------------------------------------------
+    #2 Preceed to decrypt (de-anonymize)
+    target_columns = [entry["column"] for entry in data["file"]["log"]]
+    KEY = hashlib.sha256(data["partner"]["key"].encode()).digest()
+
+    for col in target_columns:
+        if col in df.columns:
+            for i, value in df[col].items():
+                if pd.notna(value) and str(value).strip():
+                    value = str(value)
+                    deanonyResult = denonymizer.deanonymize(
+                        text=value,
+                        entities=[OperatorResult(
+                                        entity_type="PERSON",
+                                        start=0,end=len(value) - 1,
+                                        text=value,
+                                        operator="encrypt")],
+                        operators={"DEFAULT" : OperatorConfig ("decrypt", {"key": KEY})}
+                    )
+                    df.at[i, col] = deanonyResult.text
+    
+    #----------------------------------------------------------
+    #3) Override the file
+    if ext in {".xls", ".xlsx"}:
+        df.to_excel(path, index=False)
+    else:
+        df.to_csv(path, index=False)
+
+    #------------------------------------------------------------
+    #4 Update database to say this file state change to de-anonymize
+    files = data["partner"]["files"]
+    for idx, f in enumerate(files):
+        if f["filename"] == data["file"]["filename"]:
+            files[idx]["anonymized"] = False
+            break
+    db.update({"files": files}, doc_ids=[data["partner"].doc_id]) 
+
+
 #=================================================================
 # Anonymize
 #================================================================
@@ -346,6 +572,54 @@ def anonymizeTxt(data):
             files[idx]["anonymized"] = True
             break
     db.update({"files": files}, doc_ids=[data["partner"].doc_id])
+
+def anonymizeTable(data):
+    #1) Open file
+    path = data["file"]["download"]
+
+    ext = os.path.splitext(data["file"]["filename"])[1].lower()
+    if ext in {".xls", ".xlsx"}:
+        df = pd.read_excel(path)
+    else:
+        df = pd.read_csv(path)
+    
+    #-------------------------------------------------------------
+    #2 Preceed to encrypt (re-anonymize)
+    target_columns = [entry["column"] for entry in data["file"]["log"]]
+    KEY = hashlib.sha256(data["partner"]["key"].encode()).digest()
+
+    for col in target_columns:
+        if col in df.columns:
+            for i, value in df[col].items():
+                if pd.notna(value) and str(value).strip():
+                    value = str(value)
+                    anonyResult = anonymizer.anonymize(
+                        text=value, 
+                        analyzer_results= [RecognizerResult(
+                                            entity_type="PERSON",
+                                            start=0,end=len(value) - 1,
+                                            score=1.0
+                                            )],
+                        operators={"DEFAULT" : OperatorConfig ("encrypt", {"key": KEY})}
+                    )
+                    df.at[i, col] = anonyResult.text
+    
+    #----------------------------------------------------------
+    #3) Override the file
+    if ext in {".xls", ".xlsx"}:
+        df.to_excel(path, index=False)
+    else:
+        df.to_csv(path, index=False)
+
+    #------------------------------------------------------------
+    #4 Update database to say this file state change to de-anonymize
+    files = data["partner"]["files"]
+    for idx, f in enumerate(files):
+        if f["filename"] == data["file"]["filename"]:
+            files[idx]["anonymized"] = True
+            break
+    db.update({"files": files}, doc_ids=[data["partner"].doc_id])  
+
 
 #==================================================================
 # ROUTES
@@ -424,6 +698,7 @@ def upload():
             analyzeTxt(job)
         elif ext in {".csv", ".xls", ".xlsx"}:
             job["type"] = "Tabular File"
+            analyzeTable(job)
 
         return jsonify(job), 200
 
@@ -441,10 +716,9 @@ def process():
             return "Bad Request", 400
         
         if data["type"] == "Text File":
-            print("=== Reach Here 1===")
             processTxt(data)
         elif data["type"] == "Tabular File":
-            pass
+            processTable(data)
          
         return "OK", 200
 
@@ -475,7 +749,7 @@ def deanony():
         if file["type"] == "Text File":
             deanonymizeTxt(data)
         elif file["type"] == "Tabular File":
-            pass
+            deanonymizeTable(data)
 
         return "OK", 200
 
@@ -506,7 +780,7 @@ def anony():
         if file["type"] == "Text File":
             anonymizeTxt(data)
         elif file["type"] == "Tabular File":
-            pass
+            anonymizeTable(data)
 
         return "OK", 200
 
