@@ -10,7 +10,8 @@ from presidio_analyzer import (
 from flask import (
     Flask, 
     request, 
-    jsonify
+    jsonify,
+    send_file
 )
 from presidio_anonymizer.entities import (
     RecognizerResult,
@@ -25,6 +26,7 @@ import hashlib
 import pandas as pd
 import numpy as np
 import msoffcrypto
+import pyzipper
 import pprint
 import os
 import io
@@ -806,6 +808,44 @@ def anony():
     except Exception as e:
         print("Error:", e)
         return "Server Error", 500
+
+@app.route("/download", methods=["POST"])
+def download_zip():
+    try:
+        data = request.form.get("partner")
+        if not data:
+            return "Bad Request", 400
+
+        print("==== run0 =====")
+        Partner = Query()
+        partner = db.search(Partner.partner == data)[0]
+
+        print("==== run1 =====")
+        files = [file["download"] for file in partner.get("files", [])]
+        if not files:
+            return "No files uploaded", 400
+        
+        print("==== run2 =====")
+        zip_buffer = io.BytesIO()
+        with pyzipper.AESZipFile(zip_buffer, 'w', compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(partner["password"].encode())
+            for path in files:
+                arcname = os.path.basename(path)
+                zf.write(path, arcname=arcname)
+
+        print("==== run3 =====")
+        zip_buffer.seek(0)
+        return send_file(
+            zip_buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f"{partner["partner"]}.zip"
+        )
+    
+    except Exception as e:
+        print("Error:", e)
+        return "Server Error", 500
+
 
 #=================================================================
 
