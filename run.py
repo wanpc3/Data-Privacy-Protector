@@ -24,8 +24,10 @@ from tinydb import TinyDB, Query
 import hashlib
 import pandas as pd
 import numpy as np
+import msoffcrypto
 import pprint
 import os
+import io
 
 #==================================================================
 # TUNING PII ANALYZER
@@ -191,13 +193,26 @@ def analyzeTxt(job):
 
 
 def analyzeTable(job):
+    #0) Check partner from database
+    Partner = Query()
+    partner = db.search(Partner.partner == job["partner"])[0]
 
+    #-----------------------------------------------------------------------
     #1) Open file to analyze
     ext = os.path.splitext(job["filename"])[1].lower()
     path = os.path.join("temp", job["filename"])
 
     if ext in {".xls", ".xlsx"}:
-        df = pd.read_excel(path)
+        with open(path, "rb") as f:
+            office_file = msoffcrypto.OfficeFile(f)
+
+            if office_file.is_encrypted():
+                office_file.load_key(password=partner["password"])
+                decrypted = io.BytesIO()
+                office_file.decrypt(decrypted)
+                df = pd.read_excel(decrypted, engine="openpyxl")
+            else:
+                df = pd.read_excel(path)
     else:
         df = pd.read_csv(path)
     
@@ -234,11 +249,6 @@ def analyzeTable(job):
             "words": values,
             "results":[]
         })
-    
-    #---------------------------------------------------------
-    # 3) Get partner detection list
-    Partner = Query()
-    partner = db.search(Partner.partner == job["partner"])[0]
     
     #-------------------------------------------------------
     #4) Analyze
@@ -364,6 +374,11 @@ def processTxt(data):
     )
 
 def processTable(data):
+    #3) Get key & password that partner in database
+    Partner = Query()
+    partner = db.search(Partner.partner == data["partner"])[0]
+    KEY = hashlib.sha256(partner["key"].encode()).digest()
+
     #-------------------------------------------------------------
     # 1) For table, need entity & column name to anonymize
     log = []
@@ -380,15 +395,19 @@ def processTable(data):
     inpath = os.path.join("temp", data["filename"])
 
     if ext in {".xls", ".xlsx"}:
-        df = pd.read_excel(inpath)
+        with open(inpath, "rb") as f:
+            office_file = msoffcrypto.OfficeFile(f)
+
+            if office_file.is_encrypted():
+                office_file.load_key(password=partner["password"])
+                decrypted = io.BytesIO()
+                office_file.decrypt(decrypted)
+                df = pd.read_excel(decrypted, engine="openpyxl")
+            else:
+                df = pd.read_excel(inpath)
     else:
         df = pd.read_csv(inpath)
 
-    #-----------------------------------------------------------
-    #3) Get Encryption key for that partner in database
-    Partner = Query()
-    partner = db.search(Partner.partner == data["partner"])[0]
-    KEY = hashlib.sha256(partner["key"].encode()).digest()
 
     #-----------------------------------------------------------
     #4) Encrypt columns
