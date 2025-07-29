@@ -2,7 +2,18 @@ import React from 'react';
 import './ViewPartner.css';
 
 const API_BASE_URL = 'http://localhost:5000';
-const DEFAULT_FRONTEND_ICON_PATH = '/icons/default_partner_icon.svg';
+const DEFAULT_FRONTEND_ICON_PATH = '/icons/question-mark.png';
+
+const reverseDetectionSettingMap = {
+  PERSON: 'Person',
+  IC_NUMBER: 'IC Number',
+  US_PASSPORT: 'Passport',
+  EMAIL_ADDRESS: 'Email',
+  LOCATION: 'Address / Geographic',
+  US_BANK_NUMBER: 'Bank Number',
+  PHONE_NUMBER: 'Phone Number',
+  CREDIT_CARD: 'Credit Card',
+};
 
 function ViewPartner({ partner, onClose }) {
 
@@ -18,7 +29,7 @@ function ViewPartner({ partner, onClose }) {
   }
 
   let logoSrc;
-  if (partner.logo && partner.logo !== '/icons/default_partner.svg') {
+  if (partner.logo && partner.logo !== '/icons/question-mark.png') {
     logoSrc = `${API_BASE_URL}${partner.logo}`;
   } else {
     logoSrc = DEFAULT_FRONTEND_ICON_PATH;
@@ -37,7 +48,11 @@ function ViewPartner({ partner, onClose }) {
           </div>
           <div className="partner-details-display">
             <p><strong>Name:</strong> {partner.name}</p>
-            <p><strong>Detection Settings:</strong> {partner.detection && partner.detection.length > 0 ? partner.detection.join(', ') : 'None selected'}</p>
+            <p><strong>Detection Settings:</strong>
+            {partner.detection_settings && partner.detection_settings.length > 0
+              ? partner.detection_settings.map(code => reverseDetectionSettingMap[code] || code).join(', ')
+              : 'None selected'}
+            </p>
           </div>
         </div>
         <div className="modal-footer">

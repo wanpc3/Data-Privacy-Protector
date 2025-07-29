@@ -32,7 +32,7 @@ function Review({ fileName, fileType, detectedPii, onProceed, onCancel }) {
   };
 
   const renderTableContent = () => {
-    if (fileType === 'Text file' || fileType === 'Image file' || fileType === 'Document file') { // Group similar types
+    if (fileType === 'Text file' || fileType === 'Image file' || fileType === 'Document file') {
       return (
         <>
           <thead>

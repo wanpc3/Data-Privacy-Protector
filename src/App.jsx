@@ -24,12 +24,12 @@ function App() {
   const [loadingPartners, setLoadingPartners] = useState(true); // For initial partners fetch
   const [error, setError] = useState(null); // For general fetch errors
 
-  // Human Review
+  //Human Review
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewData, setReviewData] = useState(null); // Detected PII for review
   const [currentFileBeingReviewed, setCurrentFileBeingReviewed] = useState(null); // The file object currently in review
 
-  // Audit
+  //Audit
   const [isAuditLogModalOpen, setIsAuditLogModalOpen] = useState(false);
   const [auditLogData, setAuditLogData] = useState(null);
 
@@ -104,7 +104,7 @@ function App() {
       await fetchPartners();
       setIsAddPartnerModalOpen(false);
       setSelectedPartnerId(addedPartner.id);
-      alert(`Partner "${addedPartner.name}" added successfully!`);
+      //alert(`Partner "${addedPartner.name}" added successfully!`);
     } catch (err) {
       console.error("Failed to add partner:", err);
       alert(`Error adding partner: ${err.message}`);
@@ -207,7 +207,7 @@ function App() {
       const backendResponse = await response.json(); // Get response from backend (e.g., anonymized filename)
       await fetchPartners(); // Re-fetch all partners and their files to update the table
 
-      alert(`${backendResponse.filename} has been anonymized!`);
+      //alert(`${backendResponse.filename} has been anonymized!`);
       setReviewData(null);
       setCurrentFileBeingReviewed(null);
 
@@ -239,7 +239,7 @@ function App() {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
       await fetchPartners(); // Re-fetch partners to get updated file state and download link
-      alert(`File state updated to ${newState} for ${fileToToggle.filename}.`);
+      //alert(`File state updated to ${newState} for ${fileToToggle.filename}.`);
     } catch (err) {
       console.error("Failed to toggle file anonymization:", err);
       alert(`Error toggling anonymization: ${err.message}`);
@@ -251,7 +251,7 @@ function App() {
     setIsReviewModalOpen(false);
     setReviewData(null);
     setCurrentFileBeingReviewed(null);
-    alert('Review cancelled. File not anonymized.');
+    //alert('Review cancelled. File not anonymized.');
   };
 
   // Handle viewing the audit log for a file

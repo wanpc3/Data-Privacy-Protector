@@ -2,9 +2,6 @@ import { FaEye, FaDownload, FaUpload, FaUser, FaTable, FaFileAlt, FaImage, FaFol
 import { useRef } from 'react';
 import './PartnerDetails.css';
 
-// Ensure this is defined or passed as a prop
-// It's good practice to pass this as a prop from App.jsx for consistency,
-// but for now, it's fine as a const if it matches App.jsx
 const API_BASE_URL = 'http://localhost:5000'; 
 
 function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onViewAuditLog, onViewPartnerDetails, apiBaseUrl, defaultIconPath }) {
@@ -17,7 +14,7 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
   const handleFileChange = (event) => {
     const uploadedFiles = Array.from(event.target.files);
     if (uploadedFiles.length > 0) {
-      onFileUpload(uploadedFiles); // This passes the ARRAY, which App.jsx now expects
+      onFileUpload(uploadedFiles);
     }
     event.target.value = null;
   };
@@ -38,7 +35,6 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
     <div className="partner-details-container">
       <div className="partner-header-main">
         <div className="partner-info-main">
-          {/* Use apiBaseUrl and defaultIconPath props */}
           {partner.logo && partner.logo !== defaultIconPath ? ( 
               <img 
                   src={`${apiBaseUrl}${partner.logo}`} 
@@ -63,7 +59,7 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
           </button>
           <input
             type="file"
-            multiple // Keep multiple if you want to allow multiple files, though handleFileUpload only takes the first
+            multiple
             ref={fileInputRef}
             onChange={handleFileChange}
             style={{ display: 'none' }}
@@ -110,13 +106,11 @@ function PartnerDetails({ partner, onFileUpload, onToggleFileAnonymization, onVi
                       </button>
                     </td>
                     <td>
-                      {/* Ensure file.downloadLink is correctly populated from fetchPartners */}
-                      {file.state === 'Anonymized' && file.downloadLink ? ( // Only show download if anonymized and link exists
+                      {file.state === 'Anonymized' && file.downloadLink ? (
                         <a href={file.downloadLink} download>
                           <FaDownload />
                         </a>
                       ) : (
-                        // Optional: Render a disabled icon or nothing if not ready for download
                         <FaDownload className="disabled-icon" title="File not anonymized yet" />
                       )}
                     </td>
