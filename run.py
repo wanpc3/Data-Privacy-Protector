@@ -22,6 +22,8 @@ from presidio_anonymizer import AnonymizerEngine, DeanonymizeEngine
 from collections import Counter, defaultdict
 from werkzeug.utils import secure_filename
 from tinydb import TinyDB, Query
+from flask import Flask
+from flask_cors import CORS
 import hashlib
 import pandas as pd
 import numpy as np
@@ -148,6 +150,7 @@ def normalize_values(values):
 #==================================================================
 
 app = Flask(__name__)
+CORS(app)
 db = TinyDB('db.json')
 
 os.makedirs("static/icon", exist_ok=True)
@@ -682,11 +685,11 @@ def create():
         #Update new partner in db
         profile["files"] = []
         db.insert(profile)
-        return "OK", 200
+        return  jsonify({ "message": "Succecssfuly created", "partner": profile["partner"] }), 200
     
     except Exception as e:
         print("Error:", e)
-        return "Server Error", 500
+        return jsonify({ "error": "Server Error" }), 500
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -839,7 +842,7 @@ def download_zip():
             zip_buffer,
             mimetype='application/zip',
             as_attachment=True,
-            download_name=f"{partner["partner"]}.zip"
+            download_name=f"{partner['partner']}.zip"
         )
     
     except Exception as e:
