@@ -1,0 +1,282 @@
+.partner-details-container {
+  padding: 0 20px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.partner-header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 20px;
+}
+
+.partner-info-main {
+  display: flex;
+  align-items: center;
+}
+
+.partner-logo-main {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  margin-right: 15px;
+  object-fit: cover;
+  border: 1px solid #ddd;
+}
+
+.partner-header-main h1 {
+  margin: 0;
+  font-size: 1.8em;
+  color: #333;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.header-actions .action-button {
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.header-actions .action-button:hover {
+  background-color: #e5e5e5;
+  border-color: #ccc;
+}
+
+.file-list-section {
+  flex-grow: 1;
+}
+
+.file-list-section .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.file-list-section table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  min-width: 600px;
+}
+
+.file-list-section th,
+.file-list-section td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+
+.file-list-section th {
+  background-color: #f9f9f9;
+  font-weight: bold;
+  color: #555;
+  text-transform: uppercase;
+  font-size: 0.85em;
+}
+
+.file-list-section tr:last-child td {
+  border-bottom: none;
+}
+
+.file-list-section tbody tr:hover {
+  background-color: #f5f5f5;
+}
+
+.no-files-message {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+  padding: 20px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #007bff;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #007bff;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(18px);
+  -ms-transform: translateX(18px);
+  transform: translateX(18px);
+}
+
+.slider.round {
+  border-radius: 22px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+.file-state {
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 0.8em;
+  font-weight: bold;
+}
+
+.file-state.anonymized {
+  background-color: #e6f7ff;
+  color: #007bff;
+}
+
+.file-state.de-anonymized {
+  background-color: #fff0f6;
+  color: #eb2f96;
+}
+
+.file-list-section td a {
+    color: #007bff;
+    text-decoration: none;
+    font-size: 1.2em;
+    transition: color 0.2s ease;
+}
+.file-list-section td a:hover {
+    color: #0056b3;
+}
+
+.log-icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2em;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  transition: color 0.2s ease;
+}
+
+.log-icon-button:hover {
+  color: #007bff;
+}
+
+/* Responsive Styles for PartnerDetails */
+@media (max-width: 768px) {
+  .partner-details-container {
+    padding: 0 15px;
+  }
+
+  .partner-header-main {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+  }
+
+  .partner-info-main {
+    margin-bottom: 15px;
+  }
+
+  .partner-header-main h1 {
+    font-size: 1.5em;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .header-actions .action-button {
+    padding: 8px 12px;
+    font-size: 0.85em;
+    flex-grow: 1;
+    min-width: 120px;
+  }
+
+  .file-list-section th,
+  .file-list-section td {
+    padding: 10px 12px;
+    font-size: 0.9em;
+  }
+}
+
+@media (max-width: 480px) {
+  .partner-details-container {
+    padding: 0 10px;
+  }
+
+  .partner-header-main h1 {
+    font-size: 1.3em;
+  }
+
+  .partner-logo-main {
+    width: 40px;
+    height: 40px;
+    margin-right: 10px;
+  }
+
+  .header-actions .action-button {
+    font-size: 0.8em;
+    padding: 7px 10px;
+    min-width: unset;
+  }
+
+  .file-list-section th,
+  .file-list-section td {
+    padding: 8px 10px;
+    font-size: 0.8em;
+  }
+}
