@@ -32,6 +32,7 @@ import pyzipper
 import pprint
 import os
 import io
+import copy
 
 #==================================================================
 # TUNING PII ANALYZER
@@ -156,6 +157,8 @@ db = TinyDB('db.json')
 os.makedirs("static/icon", exist_ok=True)
 os.makedirs("static/upload", exist_ok=True)
 os.makedirs("temp", exist_ok=True)
+
+globalHolder = {}
 
 #==================================================================
 # Analyze Function
@@ -670,12 +673,12 @@ def create():
             not iconFile or
             not iconFile.filename.strip()
         ):
-            return "Bad Request", 400
+            return jsonify({ "error": "Bad Request" }), 400
 
         # Validate extension
         ext = os.path.splitext(iconFile.filename)[1].lower()
         if ext not in {".jpg", ".jpeg", ".png"}:
-            return "Unsupported file type", 400
+            return jsonify({ "error": "Unsupported file type" }), 400
         
         # Save file
         path = os.path.join("static/icon", secure_filename(profile["partner"] + ext))
@@ -694,6 +697,7 @@ def create():
 @app.route("/upload", methods=["POST"])
 def upload():
     try:
+        global globalHolder
         partner = request.form.get("partner")
         file = request.files.get("file")
 
@@ -703,7 +707,7 @@ def upload():
             not file.filename.strip()
         ):
             return "Bad Request", 400
-
+        
         ext = os.path.splitext(file.filename)[1].lower()
         if ext not in {".txt", ".csv", ".xls", ".xlsx"}:
             return "Unsupported file type", 400
@@ -723,7 +727,11 @@ def upload():
         elif ext in {".csv", ".xls", ".xlsx"}:
             job["type"] = "Tabular File"
             analyzeTable(job)
-
+        
+        globalHolder = job.copy()
+        del globalHolder["review"]
+        print("=========Check global before=========")
+        print(globalHolder)
         return jsonify(job), 200
 
     except Exception as e:
@@ -733,22 +741,30 @@ def upload():
 @app.route("/process", methods=["POST"])
 def process():
     try:
-        data = request.get_json(force=True)
+        global globalHolder
+        data = request.get_json()
 
-        required_fields = {"partner", "filename", "type", "review"}
-        if not all(field in data for field in required_fields):
-            return "Bad Request", 400
+        if not data:
+            return jsonify({ "error": "Bad Request" }), 400
+        
+        print("=========Check global after=========")
+        pprint.pprint(globalHolder)
+        globalHolder["review"] = copy.deepcopy(data)
+        data = copy.deepcopy(globalHolder)
+        globalHolder = {}
+        print("=========Check review=========")
+        pprint.pprint(data)
         
         if data["type"] == "Text File":
             processTxt(data)
         elif data["type"] == "Tabular File":
             processTable(data)
          
-        return "OK", 200
+        return jsonify({ "msg": "Successfully processed" }), 200
 
     except Exception as e:
         print(e)
-        return "Server Error", 500
+        return jsonify({ "error": "Server Error" }), 500
 
 @app.route("/deanonymize", methods=["POST"])
 def deanony():
@@ -759,13 +775,13 @@ def deanony():
         }
         if not all(meta.values()):
             return "Bad Request", 400
-
+        
         #1) Get partner object, with that get file object from database
         Partner = Query()
         partner = db.search(Partner.partner == meta["partner"])[0]
 
         file = next((f for f in partner.get("files", []) if f.get("filename") == meta["filename"]), None)
-
+            
         data = {
             "partner": partner,
             "file": file
