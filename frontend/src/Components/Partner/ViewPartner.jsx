@@ -60,7 +60,7 @@ function ViewPartner({ partner, onClose }) {
               <strong>Data Encryption Key:</strong>
               <input
                 type={showEncryptionKey ? 'text' : 'password'}
-                value="hahahaha123"
+                value={partner.key}
                 readOnly
                 className="password-field"
               />
@@ -78,7 +78,7 @@ function ViewPartner({ partner, onClose }) {
               <strong>File Password:</strong>
               <input
                 type={showFilePassword ? 'text' : 'password'}
-                value="abc123"
+                value={partner.password}
                 readOnly
                 className="password-field"
               />
