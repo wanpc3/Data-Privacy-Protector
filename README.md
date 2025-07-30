@@ -8,6 +8,11 @@ You can follow the steps below to get this project started:
 
 ## To run frontend:
 
+0) Move to frontend directory
+```bash
+cd frontend
+```
+
 1) Install required package
 ```bash
 npm install
